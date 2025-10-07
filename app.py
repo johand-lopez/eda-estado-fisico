@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
-from dash import Dash, dcc, html, dash_table
+from dash import Dash, dcc, html, dash_table, Input, Output
 import dash_bootstrap_components as dbc
 import plotly.express as px
 from scipy import stats
@@ -10,8 +10,8 @@ from scipy import stats
 # CONFIGURACIÓN INICIAL
 # ===============================================================
 app = Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
-server = app.server  # necesario para Render / Gunicorn
-app.title = "Dashboard EDA – Estado Físico"
+server = app.server
+app.title = "Dashboard Exploratorio – Estado Físico"
 
 # ===============================================================
 # LECTURA DE DATOS
@@ -19,140 +19,225 @@ app.title = "Dashboard EDA – Estado Físico"
 url = "https://raw.githubusercontent.com/johand-lopez/eda-estado-fisico/main/fitness_dataset.csv"
 df = pd.read_csv(url)
 
-# ===============================================================
-# ETAPA 1: DETECCIÓN DE NULOS (antes de imputar)
-# ===============================================================
-nulos_df = df.isnull().sum().reset_index()
-nulos_df.columns = ["Variable", "Nulos"]
+# Copia para conservar datos originales antes de imputar
+df_original = df.copy()
 
 # ===============================================================
-# ETAPA 2: IMPUTACIÓN DE VALORES FALTANTES
+# ETAPA 1: DETECCIÓN DE NULOS
 # ===============================================================
-# Se imputa con la mediana de sleep_hours
+nulos = df.isnull().sum().reset_index()
+nulos.columns = ["Variable", "Valores Nulos"]
+
+# ===============================================================
+# ETAPA 2: IMPUTACIÓN
+# ===============================================================
 df["sleep_hours"] = df["sleep_hours"].fillna(df["sleep_hours"].median())
 
 # ===============================================================
-# DESCRIPCIÓN DE VARIABLES
+# DISTRIBUCIONES PRE Y POST IMPUTACIÓN
 # ===============================================================
-descripcion_variables = pd.DataFrame({
-    "Variable": [
-        "age", "height_cm", "weight_kg", "heart_rate", "blood_pressure",
-        "sleep_hours", "nutrition_quality", "activity_index", "is_fit"
-    ],
-    "Descripción": [
-        "Edad", "Altura", "Peso", "Frecuencia cardíaca", "Presión arterial",
-        "Horas de sueño", "Calidad nutricional", "Índice de actividad", "Estado físico"
-    ],
-    "Unidad": [
-        "años", "cm", "kg", "bpm", "mmHg", "horas", "escala 1-10", "escala 1-10", "-"
-    ],
-    "Tipo": [
-        "Numérica", "Numérica", "Numérica", "Numérica", "Numérica",
-        "Numérica", "Numérica", "Numérica", "Categórica"
-    ]
-})
+fig_pre = px.histogram(df_original, x="sleep_hours", nbins=20,
+                       title="Horas de sueño (antes de imputación)",
+                       color_discrete_sequence=["#5DADE2"])
+fig_post = px.histogram(df, x="sleep_hours", nbins=20,
+                        title="Horas de sueño (después de imputación)",
+                        color_discrete_sequence=["#2874A6"])
 
 # ===============================================================
-# PRUEBA DE NORMALIDAD (Kolmogorov–Smirnov)
+# PRUEBA KS ENTRE DISTRIBUCIONES PRE Y POST
 # ===============================================================
-stat, p_value = stats.kstest(
-    df["sleep_hours"],
-    "norm",
-    args=(df["sleep_hours"].mean(), df["sleep_hours"].std())
-)
+df_pre = df_original["sleep_hours"].dropna()
+df_post = df["sleep_hours"]
+ks_stat, ks_pvalue = stats.ks_2samp(df_pre, df_post)
 
-normalidad_texto = (
-    f"Estadístico KS = {stat:.4f}, p-valor = {p_value:.4f}. "
-    + ("✅ No se rechaza la hipótesis de normalidad (p > 0.05)."
-       if p_value > 0.05 else "❌ Se rechaza la hipótesis de normalidad (p ≤ 0.05).")
-)
+# ===============================================================
+# PRUEBA DE NORMALIDAD (SHAPIRO-WILK)
+# ===============================================================
+numeric_vars = df.select_dtypes(include=np.number).columns.tolist()
+
+def prueba_shapiro(variable):
+    stat, p = stats.shapiro(df[variable])
+    return stat, p
 
 # ===============================================================
 # COMPONENTES DEL DASHBOARD
 # ===============================================================
 
-# --- Contexto y Diseño ---
+# =============================
+# 1. CONTEXTO
+# =============================
 contexto = html.Div([
-    html.H3("Objetivo del análisis", className="mt-4"),
+    html.H3("CONTEXTO DEL ANÁLISIS", className="mt-4"),
     html.P("""
-        Clasificar si una persona tiene un buen estado físico o no,
-        basándose en variables fisiológicas y de estilo de vida.
-        Los datos provienen de un conjunto sintético generado con fines educativos.
-        Fuente: Kaggle – Fitness Classification Dataset.
+        Este análisis exploratorio de datos (EDA) busca comprender los factores asociados al estado físico de las personas. 
+        Se analizan variables fisiológicas (edad, peso, altura, frecuencia cardíaca, presión arterial) y de estilo de vida 
+        (sueño, nutrición, actividad física), con el propósito de identificar patrones que expliquen el bienestar general.
     """),
+    html.P([
+        "Fuente del conjunto de datos: ",
+        html.A("Fitness Classification Dataset – Kaggle",
+               href="https://www.kaggle.com/datasets",
+               target="_blank", style={"color": "#2874A6"})
+    ]),
     html.Hr(),
-    html.H4("Diccionario de Variables"),
+    html.H4("DICCIONARIO DE VARIABLES"),
     dash_table.DataTable(
-        data=descripcion_variables.to_dict("records"),
-        columns=[{"name": i, "id": i} for i in descripcion_variables.columns],
+        data=pd.DataFrame({
+            "Variable": [
+                "age", "height_cm", "weight_kg", "heart_rate", "blood_pressure",
+                "sleep_hours", "nutrition_quality", "activity_index", "is_fit"
+            ],
+            "Descripción": [
+                "Edad", "Altura", "Peso", "Frecuencia cardíaca", "Presión arterial",
+                "Horas de sueño", "Calidad nutricional", "Índice de actividad física", "Estado físico (yes/no)"
+            ],
+            "Unidad": [
+                "años", "cm", "kg", "bpm", "mmHg", "horas",
+                "escala 1-10", "escala 1-10", "-"
+            ],
+            "Tipo": [
+                "Numérica", "Numérica", "Numérica", "Numérica",
+                "Numérica", "Numérica", "Numérica", "Numérica", "Categórica"
+            ]
+        }).to_dict("records"),
+        columns=[{"name": i, "id": i} for i in ["Variable", "Descripción", "Unidad", "Tipo"]],
         style_table={"overflowX": "auto"},
         style_header={"backgroundColor": "#2C3E50", "color": "white", "fontWeight": "bold"},
         style_cell={"textAlign": "left", "padding": "5px"},
     )
 ])
 
-# --- ETL y Limpieza ---
+# =============================
+# 2. ETL Y VALIDACIÓN
+# =============================
 etl = html.Div([
-    html.H3("ETL: Extracción, Transformación y Limpieza de Datos"),
-    html.P("Se exploran los valores faltantes y se validan las decisiones de limpieza e imputación."),
-    dcc.Graph(figure=px.bar(
-        nulos_df, x="Variable", y="Nulos",
-        title="Conteo de valores faltantes por variable",
-        color_discrete_sequence=["#34495E"]
-    )),
-    html.H4("Validación de Imputación"),
-    html.P("Comprobamos que la imputación no alteró significativamente la distribución de las horas de sueño."),
-    dcc.Graph(figure=px.histogram(
-        df, x="sleep_hours", nbins=20, color="is_fit",
-        title="Distribución de horas de sueño por estado físico",
-        color_discrete_sequence=px.colors.qualitative.Safe
-    )),
-    html.H4("Prueba de Normalidad (Kolmogorov–Smirnov)"),
-    html.P("Evaluamos si la variable 'sleep_hours' sigue una distribución normal."),
-    html.Div(normalidad_texto, style={"fontWeight": "bold", "color": "#2C3E50"}),
+    html.H3("ETL, LIMPIEZA Y VALIDACIÓN ESTADÍSTICA", className="mt-4"),
+    html.P("""
+        En esta fase se analizó la calidad del conjunto de datos, identificando valores ausentes, duplicados y posibles 
+        inconsistencias. Se aplicó una imputación por mediana en la variable 'sleep_hours' para reemplazar los valores faltantes, 
+        verificando posteriormente que esta operación no alterara su distribución. 
+        Adicionalmente, se evaluó la normalidad de las variables numéricas mediante la prueba de Shapiro-Wilk.
+    """),
+    html.H4("RESUMEN DE VALORES FALTANTES"),
+    dcc.Graph(figure=px.bar(nulos, x="Variable", y="Valores Nulos",
+                            color_discrete_sequence=["#2874A6"],
+                            title="Resumen de valores faltantes")
+              .update_layout(yaxis_title="Valores Nulos")),
+    html.Hr(),
+    html.H4("DISTRIBUCIÓN ANTES Y DESPUÉS DE LA IMPUTACIÓN"),
+    dcc.Graph(figure=fig_pre),
+    dcc.Graph(figure=fig_post),
+    html.I(f"Prueba KS entre distribuciones pre y post imputación: KS={ks_stat:.3f}, p-value={ks_pvalue:.3f}",
+            style={"color": "#34495E"}),
+    html.Br(),
+    html.P(f"Filas duplicadas: {df.duplicated().sum()}"),
+    html.Br(),
+    html.H4("PRUEBA DE NORMALIDAD (SHAPIRO–WILK)"),
+    html.P("""
+        Esta prueba permite determinar si la distribución de una variable numérica se ajusta o no a una distribución normal. 
+        Un p-value mayor a 0.05 indica comportamiento normal.
+    """),
+    dcc.Dropdown(
+        id="var_shapiro",
+        options=[{"label": v, "value": v} for v in numeric_vars],
+        value=numeric_vars[0],
+        clearable=False,
+        style={"width": "40%"}
+    ),
+    html.Div(id="resultado_shapiro", className="mt-3", style={"fontWeight": "bold"})
 ])
 
-# --- Análisis Descriptivo y Relacional ---
+@app.callback(
+    Output("resultado_shapiro", "children"),
+    Input("var_shapiro", "value")
+)
+def actualizar_shapiro(variable):
+    stat, p = prueba_shapiro(variable)
+    interpretacion = "Distribución normal" if p > 0.05 else "Distribución no normal"
+    return f"Estadístico = {stat:.3f}, p-value = {p:.3f} → {interpretacion}"
+
+# =============================
+# 3. ANÁLISIS DESCRIPTIVO
+# =============================
 analisis = html.Div([
-    html.H3("Análisis Descriptivo y Relacional"),
-    dcc.Graph(figure=px.scatter_matrix(
-        df, dimensions=["age", "height_cm", "weight_kg", "heart_rate", "activity_index"],
-        color="is_fit", title="Matriz de dispersión de variables fisiológicas"
-    )),
-    html.H4("Correlaciones"),
-    dcc.Graph(figure=px.imshow(
-        df.corr(numeric_only=True),
-        text_auto=True,
-        color_continuous_scale="Blues",
-        title="Matriz de correlación"
-    ))
+    html.H3("ANÁLISIS DESCRIPTIVO Y RELACIONAL", className="mt-4"),
+    html.P("""
+        Se examinan las distribuciones de las variables numéricas y su relación con el estado físico. 
+        Los gráficos permiten visualizar la dispersión, la simetría y los posibles valores atípicos, 
+        así como contrastar patrones entre los grupos 'yes' y 'no'.
+    """),
+    html.P("Selecciona una variable numérica:"),
+    dcc.Dropdown(
+        id="var_numerica",
+        options=[{"label": v, "value": v} for v in numeric_vars],
+        value="age",
+        clearable=False,
+        style={"width": "40%"}
+    ),
+    html.Br(),
+    html.Div(id="graficos_descriptivos"),
+    html.H4("MATRIZ DE CORRELACIÓN", className="mt-4"),
+    html.P("Correlaciones entre variables numéricas"),
+    dcc.Graph(
+        figure=px.imshow(df.corr(numeric_only=True),
+                         color_continuous_scale="Blues")
+    )
 ])
 
-# --- Conclusiones e Insights ---
+@app.callback(
+    Output("graficos_descriptivos", "children"),
+    Input("var_numerica", "value")
+)
+def actualizar_graficos(var):
+    hist = px.histogram(df, x=var, color="is_fit",
+                        barmode="overlay",
+                        title=f"Distribución de {var} por estado físico",
+                        color_discrete_sequence=["#21618C", "#5DADE2"])
+    box = px.box(df, x="is_fit", y=var, color="is_fit",
+                 title=f"{var} según estado físico",
+                 color_discrete_sequence=["#21618C", "#5DADE2"])
+    return html.Div([dcc.Graph(figure=hist), dcc.Graph(figure=box)])
+
+# =============================
+# 4. CONCLUSIONES
+# =============================
 conclusiones = html.Div([
-    html.H3("Conclusiones e Insights"),
-    html.Ul([
-        html.Li("La edad y la frecuencia cardíaca muestran relación inversa con el estado físico."),
-        html.Li("Las personas con más horas de sueño y mayor índice de actividad presentan mejor estado físico."),
-        html.Li("La imputación de valores faltantes en horas de sueño no modificó la distribución original."),
-        html.Li("Las correlaciones moderadas indican independencia entre la mayoría de las variables, favoreciendo el modelado posterior."),
-        html.Li("El dataset es adecuado para construir un modelo de clasificación en fases posteriores."),
-    ])
+    html.H3("CONCLUSIONES E INSIGHTS", className="mt-4"),
+    html.P("""
+        El análisis exploratorio muestra que el estado físico de las personas está estrechamente relacionado 
+        con hábitos de sueño, calidad de la nutrición y nivel de actividad física. Los individuos con mayor número 
+        de horas de sueño y mejor nutrición tienden a presentar indicadores fisiológicos más equilibrados y un mejor estado físico.
+    """),
+    html.P("""
+        También se evidencia que las variables fisiológicas como frecuencia cardíaca y presión arterial tienden a presentar 
+        mayores valores promedio en personas con menor condición física, lo cual concuerda con lo esperado desde un punto de vista clínico.
+    """),
+    html.P("""
+        La imputación de valores faltantes en 'sleep_hours' no alteró significativamente la distribución original 
+        (p-value elevado en la prueba KS), garantizando consistencia estadística. Además, no se hallaron duplicados 
+        ni sesgos notables en el conjunto de datos, reflejando buena calidad en la fuente y un equilibrio entre las 
+        clases de la variable objetivo.
+    """)
 ])
 
 # ===============================================================
-# LAYOUT PRINCIPAL CON PESTAÑAS
+# LAYOUT PRINCIPAL
 # ===============================================================
 app.layout = dbc.Container([
+    html.Div([
+        html.H2("DASHBOARD EXPLORATORIO – ESTADO FÍSICO",
+                className="text-center text-white p-3",
+                style={"backgroundColor": "#1A5276"}),
+        html.P("AUTORES: JOHAN DÍAZ · DAVID MÁRQUEZ",
+               className="text-center text-white",
+               style={"backgroundColor": "#1A5276", "marginTop": "-15px"})
+    ]),
     html.Br(),
-    html.H2("Dashboard Exploratorio – Estado Físico", className="text-center text-primary fw-bold"),
-    html.P("EDA interactivo basado en datos fisiológicos y hábitos de salud.", className="text-center text-secondary"),
-    html.Hr(),
     dcc.Tabs([
-        dcc.Tab(label="Contexto y Diseño", children=[contexto]),
-        dcc.Tab(label="ETL y Limpieza", children=[etl]),
-        dcc.Tab(label="Análisis Descriptivo y Relacional", children=[analisis]),
-        dcc.Tab(label="Conclusiones e Insights", children=[conclusiones]),
+        dcc.Tab(label="Contexto", children=[contexto]),
+        dcc.Tab(label="ETL y Validación", children=[etl]),
+        dcc.Tab(label="Análisis Descriptivo", children=[analisis]),
+        dcc.Tab(label="Conclusiones", children=[conclusiones]),
     ])
 ], fluid=True)
 
