@@ -263,6 +263,8 @@ def download_csv():
                      download_name="fitness_dataset_limpio.csv",
                      as_attachment=True)
 
+import os
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 8050))
     app.run(debug=False, host="0.0.0.0", port=port)
