@@ -1,12 +1,7 @@
-# ===============================================================
-# DASHBOARD EXPLORATORIO – ESTADO FÍSICO
-# Autores: Johan Díaz y David Márquez
-# ===============================================================
-
 import os
 import pandas as pd
 import numpy as np
-from dash import Dash, dcc, html, dash_table, Input, Output
+from dash import Dash, dcc, html, dash_table
 import dash_bootstrap_components as dbc
 import plotly.express as px
 from scipy import stats
@@ -15,25 +10,29 @@ from scipy import stats
 # CONFIGURACIÓN INICIAL
 # ===============================================================
 app = Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
-server = app.server  # ✅ Necesario para Render / Gunicorn
-
+server = app.server  # necesario para Render / Gunicorn
 app.title = "Dashboard EDA – Estado Físico"
 
 # ===============================================================
 # LECTURA DE DATOS
 # ===============================================================
-# Opción 1: dataset público en GitHub (recomendada)
 url = "https://raw.githubusercontent.com/johand-lopez/eda-estado-fisico/main/fitness_dataset.csv"
 df = pd.read_csv(url)
 
 # ===============================================================
-# LIMPIEZA DE DATOS
+# ETAPA 1: DETECCIÓN DE NULOS (antes de imputar)
 # ===============================================================
-# Imputación de valores faltantes
+nulos_df = df.isnull().sum().reset_index()
+nulos_df.columns = ["Variable", "Nulos"]
+
+# ===============================================================
+# ETAPA 2: IMPUTACIÓN DE VALORES FALTANTES
+# ===============================================================
+# Se imputa con la mediana de sleep_hours
 df["sleep_hours"] = df["sleep_hours"].fillna(df["sleep_hours"].median())
 
 # ===============================================================
-# DESCRIPCIÓN DEL CONJUNTO DE DATOS
+# DESCRIPCIÓN DE VARIABLES
 # ===============================================================
 descripcion_variables = pd.DataFrame({
     "Variable": [
@@ -54,12 +53,19 @@ descripcion_variables = pd.DataFrame({
 })
 
 # ===============================================================
-# FUNCIONES AUXILIARES
+# PRUEBA DE NORMALIDAD (Kolmogorov–Smirnov)
 # ===============================================================
-def resumen_estadistico(df):
-    resumen = df.describe().T
-    resumen["missing_%"] = df.isnull().mean() * 100
-    return resumen.reset_index().rename(columns={"index": "Variable"})
+stat, p_value = stats.kstest(
+    df["sleep_hours"],
+    "norm",
+    args=(df["sleep_hours"].mean(), df["sleep_hours"].std())
+)
+
+normalidad_texto = (
+    f"Estadístico KS = {stat:.4f}, p-valor = {p_value:.4f}. "
+    + ("✅ No se rechaza la hipótesis de normalidad (p > 0.05)."
+       if p_value > 0.05 else "❌ Se rechaza la hipótesis de normalidad (p ≤ 0.05).")
+)
 
 # ===============================================================
 # COMPONENTES DEL DASHBOARD
@@ -88,20 +94,22 @@ contexto = html.Div([
 # --- ETL y Limpieza ---
 etl = html.Div([
     html.H3("ETL: Extracción, Transformación y Limpieza de Datos"),
-    html.P("A continuación se muestran los valores faltantes por variable y la distribución tras la imputación."),
+    html.P("Se exploran los valores faltantes y se validan las decisiones de limpieza e imputación."),
     dcc.Graph(figure=px.bar(
-        df.isnull().sum().reset_index().rename(columns={"index": "Variable", 0: "Nulos"}),
-        x="Variable", y="Nulos",
+        nulos_df, x="Variable", y="Nulos",
         title="Conteo de valores faltantes por variable",
         color_discrete_sequence=["#34495E"]
     )),
     html.H4("Validación de Imputación"),
     html.P("Comprobamos que la imputación no alteró significativamente la distribución de las horas de sueño."),
-    dcc.Graph(figure=px.histogram(df, x="sleep_hours", nbins=20, color="is_fit",
-                                  title="Distribución de horas de sueño por estado físico",
-                                  color_discrete_sequence=px.colors.qualitative.Safe)),
+    dcc.Graph(figure=px.histogram(
+        df, x="sleep_hours", nbins=20, color="is_fit",
+        title="Distribución de horas de sueño por estado físico",
+        color_discrete_sequence=px.colors.qualitative.Safe
+    )),
     html.H4("Prueba de Normalidad (Kolmogorov–Smirnov)"),
-    html.P("Se evalúa si la variable 'sleep_hours' sigue una distribución normal."),
+    html.P("Evaluamos si la variable 'sleep_hours' sigue una distribución normal."),
+    html.Div(normalidad_texto, style={"fontWeight": "bold", "color": "#2C3E50"}),
 ])
 
 # --- Análisis Descriptivo y Relacional ---
@@ -112,8 +120,12 @@ analisis = html.Div([
         color="is_fit", title="Matriz de dispersión de variables fisiológicas"
     )),
     html.H4("Correlaciones"),
-    dcc.Graph(figure=px.imshow(df.corr(numeric_only=True), text_auto=True,
-                               color_continuous_scale="Blues", title="Matriz de correlación"))
+    dcc.Graph(figure=px.imshow(
+        df.corr(numeric_only=True),
+        text_auto=True,
+        color_continuous_scale="Blues",
+        title="Matriz de correlación"
+    ))
 ])
 
 # --- Conclusiones e Insights ---
@@ -133,7 +145,7 @@ conclusiones = html.Div([
 # ===============================================================
 app.layout = dbc.Container([
     html.Br(),
-    html.H2("📊 Dashboard Exploratorio – Estado Físico", className="text-center text-primary fw-bold"),
+    html.H2("Dashboard Exploratorio – Estado Físico", className="text-center text-primary fw-bold"),
     html.P("EDA interactivo basado en datos fisiológicos y hábitos de salud.", className="text-center text-secondary"),
     html.Hr(),
     dcc.Tabs([
