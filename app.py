@@ -16,9 +16,7 @@ from dash.dcc import send_file
 # ===============================================================
 # 1️⃣ LECTURA DE DATOS
 # ===============================================================
-df = pd.read_csv(
-    r"C:\Users\johan\OneDrive - Universidad del Norte\Escritorio\Visualizacion de datos\dash_eda_mejorado\fitness_dataset.csv"
-)
+df = pd.read_csv("fitness_dataset.csv")
 
 # ===============================================================
 # 2️⃣ TRATAMIENTO DE VALORES FALTANTES
