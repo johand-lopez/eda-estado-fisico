@@ -214,38 +214,50 @@ def actualizar_graficos(var):
                  title=f"{var} según estado físico",
                  orientation="h",
                  color_discrete_sequence=["#21618C", "#5DADE2"])
-    box.update_traces(boxpoints=False, hoverinfo="skip")  # 🔹 sin etiquetas extra
+    box.update_traces(boxpoints=False, hoverinfo="skip")
     return html.Div([dcc.Graph(figure=hist), dcc.Graph(figure=box)])
 
 # ===============================================================
-# CONCLUSIONES
+# CONCLUSIONES E INSIGHTS
 # ===============================================================
 conclusiones = html.Div([
     html.H3("CONCLUSIONES E INSIGHTS", className="mt-4"),
+
+    html.H4("1. Hallazgos Clave"),
     html.P("""
-        El análisis revela una conexión clara entre el estado físico y hábitos saludables. 
-        Las personas con mejor estado físico suelen presentar mayor calidad de sueño, niveles superiores de nutrición 
-        y un índice de actividad más elevado, evidenciando la importancia del equilibrio integral entre cuerpo y mente.
+        El análisis confirma que el estado físico está fuertemente asociado con la calidad de los hábitos cotidianos.
+        Las personas físicamente activas presentan mayores horas de sueño, mejor nutrición y menor frecuencia cardíaca promedio.
+        A nivel estadístico, se observan correlaciones significativas entre el índice de actividad y la calidad nutricional con el estado físico.
+    """),
+
+    html.H4("2. Interpretación de Resultados"),
+    html.P("""
+        Estos hallazgos refuerzan la premisa de que la condición física es un fenómeno multifactorial.
+        No existe una sola variable que determine el bienestar, sino la interacción entre descanso, alimentación y actividad.
+        La estabilidad de la distribución tras la imputación de valores faltantes demuestra que el tratamiento de los datos 
+        fue adecuado y que las conclusiones derivadas son confiables.
     """),
     html.P("""
-        Se observa que variables fisiológicas como la frecuencia cardíaca y la presión arterial tienden a mostrar valores 
-        más estables en individuos físicamente activos, lo que sugiere un mejor funcionamiento cardiovascular asociado 
-        a la constancia en la actividad física y a un descanso adecuado.
+        Asimismo, los resultados sugieren que el sueño adecuado actúa como un regulador clave del rendimiento fisiológico.
+        La evidencia empírica obtenida coincide con literatura previa que vincula el descanso con el equilibrio hormonal,
+        la reparación muscular y la regulación metabólica.
+    """),
+
+    html.H4("3. Implicaciones y Reflexión Final"),
+    html.P("""
+        Este estudio evidencia la utilidad del análisis exploratorio como punto de partida para investigaciones más complejas
+        en el ámbito de la salud y el comportamiento humano. Comprender los factores que inciden en el estado físico permite
+        orientar intervenciones personalizadas que fomenten hábitos sostenibles.
     """),
     html.P("""
-        Las correlaciones encontradas, aunque moderadas, refuerzan la idea de que el bienestar físico es multifactorial:
-        no depende de una sola variable, sino de la interacción entre hábitos, biología y estilo de vida. 
-        Esto abre camino a futuras investigaciones que integren dimensiones psicológicas y socioeconómicas.
+        En términos prácticos, los resultados pueden apoyar el diseño de programas de bienestar integrales,
+        donde la recomendación no se limite a “hacer ejercicio”, sino que contemple el balance entre descanso,
+        nutrición y actividad moderada. 
     """),
     html.P("""
-        En síntesis, los resultados permiten inferir que promover hábitos consistentes de sueño y actividad física, 
-        junto a una nutrición equilibrada, puede traducirse en una mejora tangible en el estado de salud general. 
-        La evidencia sugiere que pequeñas variaciones sostenidas en el tiempo son más determinantes que esfuerzos aislados.
-    """),
-    html.P("""
-        Finalmente, este estudio demuestra cómo el análisis de datos puede convertirse en una herramienta poderosa 
-        para entender el bienestar humano, invitando a reflexionar sobre la manera en que la información empírica 
-        puede guiar decisiones más saludables, tanto a nivel individual como colectivo.
+        Finalmente, se reafirma que la ciencia de datos es una herramienta poderosa para traducir patrones invisibles
+        en conocimiento aplicable. La integración de evidencia cuantitativa con interpretación contextual
+        fortalece la capacidad de decisión en políticas públicas, salud preventiva y bienestar individual.
     """)
 ])
 
