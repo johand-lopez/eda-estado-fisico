@@ -19,18 +19,13 @@ app.title = "Dashboard Exploratorio – Estado Físico"
 url = "https://raw.githubusercontent.com/johand-lopez/eda-estado-fisico/main/fitness_dataset.csv"
 df = pd.read_csv(url)
 
-# Copia para conservar datos originales antes de imputar
 df_original = df.copy()
 
 # ===============================================================
-# ETAPA 1: DETECCIÓN DE NULOS
+# DETECCIÓN DE NULOS E IMPUTACIÓN
 # ===============================================================
 nulos = df.isnull().sum().reset_index()
 nulos.columns = ["Variable", "Valores Nulos"]
-
-# ===============================================================
-# ETAPA 2: IMPUTACIÓN
-# ===============================================================
 df["sleep_hours"] = df["sleep_hours"].fillna(df["sleep_hours"].median())
 
 # ===============================================================
@@ -44,15 +39,12 @@ fig_post = px.histogram(df, x="sleep_hours", nbins=20,
                         color_discrete_sequence=["#2874A6"])
 
 # ===============================================================
-# PRUEBA KS ENTRE DISTRIBUCIONES PRE Y POST
+# PRUEBAS ESTADÍSTICAS
 # ===============================================================
 df_pre = df_original["sleep_hours"].dropna()
 df_post = df["sleep_hours"]
 ks_stat, ks_pvalue = stats.ks_2samp(df_pre, df_post)
 
-# ===============================================================
-# PRUEBA DE NORMALIDAD (SHAPIRO-WILK)
-# ===============================================================
 numeric_vars = df.select_dtypes(include=np.number).columns.tolist()
 
 def prueba_shapiro(variable):
@@ -60,49 +52,39 @@ def prueba_shapiro(variable):
     return stat, p
 
 # ===============================================================
-# COMPONENTES DEL DASHBOARD
+# CONTEXTO
 # ===============================================================
-
-# =============================
-# 1. CONTEXTO
-# =============================
 contexto = html.Div([
     html.H3("INTRODUCCIÓN: EXPLORANDO LOS FACTORES DETERMINANTES DEL ESTADO FÍSICO", className="mt-4"),
     html.P("""
         En un mundo donde la salud y el estado físico se han convertido en pilares fundamentales del bienestar personal,
         una pregunta persiste: ¿qué factores realmente determinan que una persona mantenga un estilo de vida activo y saludable?
-        Mientras millones de personas establecen metas de fitness cada año, la brecha entre la intención y la acción sigue siendo significativa.
-        Este proyecto surge de la curiosidad por descifrar los patrones detrás de esta ecuación compleja.
+        Este proyecto busca descifrar los patrones que diferencian a quienes logran mantener su bienestar de quienes enfrentan
+        dificultades para hacerlo.
     """),
     html.H4("UNA MIRADA BASADA EN DATOS"),
     html.P("""
-        Utilizando el conjunto de datos "Fitness Classification Dataset", nos embarcamos en un viaje exploratorio para identificar los 
-        elementos clave que diferencian a las personas que mantienen rutinas consistentes de aquellas que luchan por establecer hábitos duraderos.
-        Este análisis no se centra en prescripciones universales, sino en comprender la diversidad de caminos que llevan al mismo destino: 
-        un estilo de vida activo y saludable.
+        A partir del conjunto de datos "Fitness Classification Dataset", se realiza un análisis exploratorio para identificar
+        relaciones significativas entre variables fisiológicas y hábitos de vida. El objetivo es comprender cómo la edad,
+        la nutrición, la actividad y el descanso configuran el estado físico.
     """),
     html.H4("EL CAMINO DE LA INVESTIGACIÓN"),
     html.Ul([
-        html.Li("Patrones de Comportamiento: examinaremos cómo la frecuencia, consistencia y tipos de actividad física se relacionan con el mantenimiento del estado físico."),
-        html.Li("Preferencias Personales: investigaremos cómo las elecciones individuales respecto a disciplinas y horarios influyen en la adherencia a largo plazo."),
-        html.Li("Factores Contextuales: analizaremos el papel que juegan características demográficas y circunstancias personales en este proceso.")
+        html.Li("Patrones de Comportamiento: observar la relación entre frecuencia de actividad y condición física."),
+        html.Li("Preferencias Personales: analizar cómo hábitos de sueño y nutrición impactan el bienestar."),
+        html.Li("Factores Contextuales: entender la influencia de variables demográficas en el rendimiento físico.")
     ]),
     html.H4("OBJETIVOS"),
     html.P("""
-        Al sintetizar estos diferentes aspectos, buscamos crear una imagen multidimensional de lo que significa estar “en forma” en la práctica.
-        Los hallazgos de esta investigación pretenden contribuir a una comprensión más matizada y personalizada del bienestar físico,
-        reconociendo que cada individuo requiere una combinación única de elementos para alcanzar sus metas de salud.
-    """),
-    html.P("""
-        Este estudio representa un paso hacia la democratización del conocimiento sobre fitness, transformando observaciones de datos
-        en información significativa que pueda inspirar a las personas en su viaje personal hacia una vida más activa y saludable.
+        Este estudio pretende generar una comprensión integral de lo que significa “estar en forma”, 
+        valorando la interacción entre cuerpo, descanso y hábitos saludables. Los resultados aspiran a ofrecer
+        una perspectiva que motive decisiones basadas en evidencia hacia una vida activa y equilibrada.
     """),
     html.Hr(),
     html.H3("CONTEXTO DEL ANÁLISIS"),
     html.P("""
-        Este análisis exploratorio de datos (EDA) busca comprender los factores asociados al estado físico de las personas. 
         Se analizan variables fisiológicas (edad, peso, altura, frecuencia cardíaca, presión arterial) y de estilo de vida 
-        (sueño, nutrición, actividad física), con el propósito de identificar patrones que expliquen el bienestar general.
+        (sueño, nutrición, actividad física), buscando relaciones que expliquen diferencias en el estado físico reportado.
     """),
     html.P([
         "Fuente del conjunto de datos: ",
@@ -120,7 +102,7 @@ contexto = html.Div([
             ],
             "Descripción": [
                 "Edad", "Altura", "Peso", "Frecuencia cardíaca", "Presión arterial",
-                "Horas de sueño", "Calidad nutricional", "Índice de actividad física", "Estado físico (yes/no)"
+                "Horas de sueño", "Calidad nutricional", "Índice de actividad física", "Estado físico (1 = bueno)"
             ],
             "Unidad": [
                 "años", "cm", "kg", "bpm", "mmHg", "horas",
@@ -138,36 +120,31 @@ contexto = html.Div([
     )
 ])
 
-# =============================
-# 2. ETL Y VALIDACIÓN
-# =============================
+# ===============================================================
+# ETL Y VALIDACIÓN
+# ===============================================================
 etl = html.Div([
     html.H3("ETL, LIMPIEZA Y VALIDACIÓN ESTADÍSTICA", className="mt-4"),
     html.P("""
-        En esta fase se analizó la calidad del conjunto de datos, identificando valores ausentes, duplicados y posibles 
-        inconsistencias. Se aplicó una imputación por mediana en la variable 'sleep_hours' para reemplazar los valores faltantes, 
-        verificando posteriormente que esta operación no alterara su distribución. 
-        Adicionalmente, se evaluó la normalidad de las variables numéricas mediante la prueba de Shapiro-Wilk.
+        Se identificaron y gestionaron los valores ausentes mediante imputación por mediana, verificando su estabilidad estadística.
+        También se aplicaron pruebas de normalidad para comprender la naturaleza de las distribuciones numéricas.
     """),
     html.H4("RESUMEN DE VALORES FALTANTES"),
     dcc.Graph(figure=px.bar(nulos, x="Variable", y="Valores Nulos",
                             color_discrete_sequence=["#2874A6"],
-                            title="Resumen de valores faltantes")
+                            title="Valores faltantes por variable")
               .update_layout(yaxis_title="Valores Nulos")),
     html.Hr(),
     html.H4("DISTRIBUCIÓN ANTES Y DESPUÉS DE LA IMPUTACIÓN"),
     dcc.Graph(figure=fig_pre),
     dcc.Graph(figure=fig_post),
-    html.I(f"Prueba KS entre distribuciones pre y post imputación: KS={ks_stat:.3f}, p-value={ks_pvalue:.3f}",
+    html.I(f"Prueba KS entre distribuciones: KS={ks_stat:.3f}, p-value={ks_pvalue:.3f}",
             style={"color": "#34495E"}),
     html.Br(),
     html.P(f"Filas duplicadas: {df.duplicated().sum()}"),
     html.Br(),
     html.H4("PRUEBA DE NORMALIDAD (SHAPIRO–WILK)"),
-    html.P("""
-        Esta prueba permite determinar si la distribución de una variable numérica se ajusta o no a una distribución normal. 
-        Un p-value mayor a 0.05 indica comportamiento normal.
-    """),
+    html.P("Permite determinar si una variable numérica sigue una distribución normal (p > 0.05 indica normalidad)."),
     dcc.Dropdown(
         id="var_shapiro",
         options=[{"label": v, "value": v} for v in numeric_vars],
@@ -187,15 +164,17 @@ def actualizar_shapiro(variable):
     interpretacion = "Distribución normal" if p > 0.05 else "Distribución no normal"
     return f"Estadístico = {stat:.3f}, p-value = {p:.3f} → {interpretacion}"
 
-# =============================
-# 3. ANÁLISIS DESCRIPTIVO
-# =============================
+# ===============================================================
+# ANÁLISIS DESCRIPTIVO
+# ===============================================================
+corr_df = df.corr(numeric_only=True)["is_fit"].drop("is_fit").abs().sort_values(ascending=False).reset_index()
+corr_df.columns = ["Variable", "Correlación"]
+
 analisis = html.Div([
     html.H3("ANÁLISIS DESCRIPTIVO Y RELACIONAL", className="mt-4"),
     html.P("""
-        Se examinan las distribuciones de las variables numéricas y su relación con el estado físico. 
-        Los gráficos permiten visualizar la dispersión, la simetría y los posibles valores atípicos, 
-        así como contrastar patrones entre los grupos 'yes' y 'no'.
+        Se examinan las relaciones entre las variables numéricas y el estado físico, 
+        visualizando cómo cada factor contribuye al bienestar general.
     """),
     html.P("Selecciona una variable numérica:"),
     dcc.Dropdown(
@@ -209,21 +188,18 @@ analisis = html.Div([
     html.Div(id="graficos_descriptivos"),
     html.H4("MATRIZ DE CORRELACIÓN", className="mt-4"),
     html.P("Correlaciones entre variables numéricas"),
-    dcc.Graph(
-        figure=px.imshow(df.corr(numeric_only=True),
-                         color_continuous_scale="Blues",
-                         height=700, width=900)
-    ),
+    html.Div([
+        dcc.Graph(
+            figure=px.imshow(df.corr(numeric_only=True),
+                             color_continuous_scale="Blues",
+                             height=700, width=900)
+        )
+    ], style={"display": "flex", "justifyContent": "center"}),
     html.H4("VARIABLES MÁS CORRELACIONADAS CON EL ESTADO FÍSICO", className="mt-4"),
+    dcc.Graph(figure=px.bar(corr_df, x="Variable", y="Correlación",
+                            color="Correlación", color_continuous_scale="Blues",
+                            title="Correlaciones absolutas con is_fit"))
 ])
-
-# --- Gráfico de correlaciones más altas con 'is_fit' ---
-corr_df = df.corr(numeric_only=True)["is_fit"].drop("is_fit").abs().sort_values(ascending=False).reset_index()
-corr_df.columns = ["Variable", "Correlación"]
-corr_bar = px.bar(corr_df, x="Variable", y="Correlación",
-                  color="Correlación", color_continuous_scale="Blues",
-                  title="Correlaciones absolutas con el estado físico")
-analisis.children.append(dcc.Graph(figure=corr_bar))
 
 @app.callback(
     Output("graficos_descriptivos", "children"),
@@ -238,27 +214,38 @@ def actualizar_graficos(var):
                  title=f"{var} según estado físico",
                  orientation="h",
                  color_discrete_sequence=["#21618C", "#5DADE2"])
+    box.update_traces(boxpoints=False, hoverinfo="skip")  # 🔹 sin etiquetas extra
     return html.Div([dcc.Graph(figure=hist), dcc.Graph(figure=box)])
 
-# =============================
-# 4. CONCLUSIONES
-# =============================
+# ===============================================================
+# CONCLUSIONES
+# ===============================================================
 conclusiones = html.Div([
     html.H3("CONCLUSIONES E INSIGHTS", className="mt-4"),
     html.P("""
-        El análisis exploratorio muestra que el estado físico de las personas está estrechamente relacionado 
-        con hábitos de sueño, calidad de la nutrición y nivel de actividad física. Los individuos con mayor número 
-        de horas de sueño y mejor nutrición tienden a presentar indicadores fisiológicos más equilibrados y un mejor estado físico.
+        El análisis revela una conexión clara entre el estado físico y hábitos saludables. 
+        Las personas con mejor estado físico suelen presentar mayor calidad de sueño, niveles superiores de nutrición 
+        y un índice de actividad más elevado, evidenciando la importancia del equilibrio integral entre cuerpo y mente.
     """),
     html.P("""
-        También se evidencia que las variables fisiológicas como frecuencia cardíaca y presión arterial tienden a presentar 
-        mayores valores promedio en personas con menor condición física, lo cual concuerda con lo esperado desde un punto de vista clínico.
+        Se observa que variables fisiológicas como la frecuencia cardíaca y la presión arterial tienden a mostrar valores 
+        más estables en individuos físicamente activos, lo que sugiere un mejor funcionamiento cardiovascular asociado 
+        a la constancia en la actividad física y a un descanso adecuado.
     """),
     html.P("""
-        La imputación de valores faltantes en 'sleep_hours' no alteró significativamente la distribución original 
-        (p-value elevado en la prueba KS), garantizando consistencia estadística. Además, no se hallaron duplicados 
-        ni sesgos notables en el conjunto de datos, reflejando buena calidad en la fuente y un equilibrio entre las 
-        clases de la variable objetivo.
+        Las correlaciones encontradas, aunque moderadas, refuerzan la idea de que el bienestar físico es multifactorial:
+        no depende de una sola variable, sino de la interacción entre hábitos, biología y estilo de vida. 
+        Esto abre camino a futuras investigaciones que integren dimensiones psicológicas y socioeconómicas.
+    """),
+    html.P("""
+        En síntesis, los resultados permiten inferir que promover hábitos consistentes de sueño y actividad física, 
+        junto a una nutrición equilibrada, puede traducirse en una mejora tangible en el estado de salud general. 
+        La evidencia sugiere que pequeñas variaciones sostenidas en el tiempo son más determinantes que esfuerzos aislados.
+    """),
+    html.P("""
+        Finalmente, este estudio demuestra cómo el análisis de datos puede convertirse en una herramienta poderosa 
+        para entender el bienestar humano, invitando a reflexionar sobre la manera en que la información empírica 
+        puede guiar decisiones más saludables, tanto a nivel individual como colectivo.
     """)
 ])
 
