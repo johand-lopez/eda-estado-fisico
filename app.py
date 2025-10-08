@@ -67,7 +67,38 @@ def prueba_shapiro(variable):
 # 1. CONTEXTO
 # =============================
 contexto = html.Div([
-    html.H3("CONTEXTO DEL ANÁLISIS", className="mt-4"),
+    html.H3("INTRODUCCIÓN: EXPLORANDO LOS FACTORES DETERMINANTES DEL ESTADO FÍSICO", className="mt-4"),
+    html.P("""
+        En un mundo donde la salud y el estado físico se han convertido en pilares fundamentales del bienestar personal,
+        una pregunta persiste: ¿qué factores realmente determinan que una persona mantenga un estilo de vida activo y saludable?
+        Mientras millones de personas establecen metas de fitness cada año, la brecha entre la intención y la acción sigue siendo significativa.
+        Este proyecto surge de la curiosidad por descifrar los patrones detrás de esta ecuación compleja.
+    """),
+    html.H4("UNA MIRADA BASADA EN DATOS"),
+    html.P("""
+        Utilizando el conjunto de datos "Fitness Classification Dataset", nos embarcamos en un viaje exploratorio para identificar los 
+        elementos clave que diferencian a las personas que mantienen rutinas consistentes de aquellas que luchan por establecer hábitos duraderos.
+        Este análisis no se centra en prescripciones universales, sino en comprender la diversidad de caminos que llevan al mismo destino: 
+        un estilo de vida activo y saludable.
+    """),
+    html.H4("EL CAMINO DE LA INVESTIGACIÓN"),
+    html.Ul([
+        html.Li("Patrones de Comportamiento: examinaremos cómo la frecuencia, consistencia y tipos de actividad física se relacionan con el mantenimiento del estado físico."),
+        html.Li("Preferencias Personales: investigaremos cómo las elecciones individuales respecto a disciplinas y horarios influyen en la adherencia a largo plazo."),
+        html.Li("Factores Contextuales: analizaremos el papel que juegan características demográficas y circunstancias personales en este proceso.")
+    ]),
+    html.H4("OBJETIVOS"),
+    html.P("""
+        Al sintetizar estos diferentes aspectos, buscamos crear una imagen multidimensional de lo que significa estar “en forma” en la práctica.
+        Los hallazgos de esta investigación pretenden contribuir a una comprensión más matizada y personalizada del bienestar físico,
+        reconociendo que cada individuo requiere una combinación única de elementos para alcanzar sus metas de salud.
+    """),
+    html.P("""
+        Este estudio representa un paso hacia la democratización del conocimiento sobre fitness, transformando observaciones de datos
+        en información significativa que pueda inspirar a las personas en su viaje personal hacia una vida más activa y saludable.
+    """),
+    html.Hr(),
+    html.H3("CONTEXTO DEL ANÁLISIS"),
     html.P("""
         Este análisis exploratorio de datos (EDA) busca comprender los factores asociados al estado físico de las personas. 
         Se analizan variables fisiológicas (edad, peso, altura, frecuencia cardíaca, presión arterial) y de estilo de vida 
@@ -180,9 +211,19 @@ analisis = html.Div([
     html.P("Correlaciones entre variables numéricas"),
     dcc.Graph(
         figure=px.imshow(df.corr(numeric_only=True),
-                         color_continuous_scale="Blues")
-    )
+                         color_continuous_scale="Blues",
+                         height=700, width=900)
+    ),
+    html.H4("VARIABLES MÁS CORRELACIONADAS CON EL ESTADO FÍSICO", className="mt-4"),
 ])
+
+# --- Gráfico de correlaciones más altas con 'is_fit' ---
+corr_df = df.corr(numeric_only=True)["is_fit"].drop("is_fit").abs().sort_values(ascending=False).reset_index()
+corr_df.columns = ["Variable", "Correlación"]
+corr_bar = px.bar(corr_df, x="Variable", y="Correlación",
+                  color="Correlación", color_continuous_scale="Blues",
+                  title="Correlaciones absolutas con el estado físico")
+analisis.children.append(dcc.Graph(figure=corr_bar))
 
 @app.callback(
     Output("graficos_descriptivos", "children"),
@@ -193,8 +234,9 @@ def actualizar_graficos(var):
                         barmode="overlay",
                         title=f"Distribución de {var} por estado físico",
                         color_discrete_sequence=["#21618C", "#5DADE2"])
-    box = px.box(df, x="is_fit", y=var, color="is_fit",
+    box = px.box(df, y="is_fit", x=var, color="is_fit",
                  title=f"{var} según estado físico",
+                 orientation="h",
                  color_discrete_sequence=["#21618C", "#5DADE2"])
     return html.Div([dcc.Graph(figure=hist), dcc.Graph(figure=box)])
 
